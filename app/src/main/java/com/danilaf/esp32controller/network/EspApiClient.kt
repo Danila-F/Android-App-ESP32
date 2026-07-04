@@ -33,6 +33,40 @@ class EspApiClient(
         )
     }
 
+    suspend fun provision(
+        setupBaseUrl: String,
+        wifiSsid: String,
+        wifiPassword: String,
+        deviceName: String,
+        room: String
+    ): DeviceInfo = withContext(Dispatchers.IO) {
+        val normalized = normalizeBaseUrl(setupBaseUrl)
+        val payload = JSONObject()
+            .put("ssid", wifiSsid)
+            .put("password", wifiPassword)
+            .put("name", deviceName.ifBlank { "ESP32 Device" })
+            .put("room", room)
+
+        val request = Request.Builder()
+            .url("$normalized/api/provision")
+            .post(payload.toString().toRequestBody(JSON))
+            .build()
+
+        client.newCall(request).execute().use { response ->
+            val body = response.body?.string().orEmpty()
+            if (!response.isSuccessful) error("Provisioning failed: HTTP ${response.code} $body")
+            val json = JSONObject(body)
+            DeviceInfo(
+                id = json.optString("deviceId"),
+                name = json.optString("name", deviceName.ifBlank { "ESP32 Device" }),
+                room = room,
+                baseUrl = normalized,
+                firmwareVersion = null,
+                token = json.optString("authToken").ifBlank { null }
+            )
+        }
+    }
+
     suspend fun getState(device: Device): DeviceState = withContext(Dispatchers.IO) {
         val json = getJson("${device.baseUrl}/api/state", device.token)
         DeviceState(
