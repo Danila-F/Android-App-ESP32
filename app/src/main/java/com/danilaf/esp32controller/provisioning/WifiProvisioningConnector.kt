@@ -30,25 +30,49 @@ class WifiProvisioningConnector(context: Context) {
         passphrase: String,
         onAvailable: () -> Unit,
         onUnavailable: () -> Unit,
-        onLost: () -> Unit
+        onLost: () -> Unit,
+        onError: (String) -> Unit
     ) {
         release()
 
-        val specifier = WifiNetworkSpecifier.Builder()
-            .setSsid(ssid)
-            .setWpa2Passphrase(passphrase)
-            .build()
+        if (ssid.isBlank()) {
+            onError("ESP32 setup Wi-Fi SSID is required")
+            return
+        }
+        if (passphrase.length !in 8..63) {
+            onError("ESP32 setup Wi-Fi password must be 8–63 characters for WPA2")
+            return
+        }
 
-        val request = NetworkRequest.Builder()
-            .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-            .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .setNetworkSpecifier(specifier)
-            .build()
+        val specifier = try {
+            WifiNetworkSpecifier.Builder()
+                .setSsid(ssid.trim())
+                .setWpa2Passphrase(passphrase)
+                .build()
+        } catch (error: RuntimeException) {
+            onError("Invalid setup Wi-Fi request: ${error.message ?: error.javaClass.simpleName}")
+            return
+        }
+
+        val request = try {
+            NetworkRequest.Builder()
+                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
+                .removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .setNetworkSpecifier(specifier)
+                .build()
+        } catch (error: RuntimeException) {
+            onError("Unable to create Wi-Fi request: ${error.message ?: error.javaClass.simpleName}")
+            return
+        }
 
         val networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                connectivityManager.bindProcessToNetwork(network)
-                onAvailable()
+                val bound = runCatching { connectivityManager.bindProcessToNetwork(network) }.getOrDefault(false)
+                if (bound) {
+                    onAvailable()
+                } else {
+                    onError("Connected to setup Wi-Fi, but the app could not route requests through it")
+                }
             }
 
             override fun onUnavailable() {
@@ -60,7 +84,15 @@ class WifiProvisioningConnector(context: Context) {
             }
         }
 
-        callback = networkCallback
-        connectivityManager.requestNetwork(request, networkCallback)
+        try {
+            callback = networkCallback
+            connectivityManager.requestNetwork(request, networkCallback)
+        } catch (error: SecurityException) {
+            callback = null
+            onError("Wi-Fi setup permission error: ${error.message ?: error.javaClass.simpleName}")
+        } catch (error: RuntimeException) {
+            callback = null
+            onError("Wi-Fi setup request failed: ${error.message ?: error.javaClass.simpleName}")
+        }
     }
 }
