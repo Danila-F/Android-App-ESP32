@@ -160,9 +160,9 @@ private fun Esp32ControllerApp() {
                             setupConnector.requestSetupNetwork(
                                 ssid = setupSsid,
                                 passphrase = setupPassphrase,
-                                onAvailable = { provisionStatus = "Connected to ESP32 setup Wi-Fi. Now tap Provision." },
-                                onUnavailable = { provisionStatus = "Setup Wi-Fi connection was not completed." },
-                                onLost = { provisionStatus = "Setup Wi-Fi disconnected." }
+                                onAvailable = { scope.launch { provisionStatus = "Connected to ESP32 setup Wi-Fi. Now tap Provision." } },
+                                onUnavailable = { scope.launch { provisionStatus = "Setup Wi-Fi connection was not completed." } },
+                                onLost = { scope.launch { provisionStatus = "Setup Wi-Fi disconnected." } }
                             )
                         } else {
                             provisionStatus = "Automatic setup Wi-Fi connection requires Android 10+. Connect to ESP32 setup Wi-Fi manually, then tap Provision."
@@ -171,25 +171,25 @@ private fun Esp32ControllerApp() {
                     onProvision = {
                         if (homeSsid.isBlank()) {
                             showMessage("Home Wi-Fi SSID is required")
-                            return@FirstTimeSetupCard
-                        }
-                        provisioning = true
-                        provisionStatus = "Sending home Wi-Fi credentials to ESP32..."
-                        scope.launch {
-                            runCatching { api.provision(setupBaseUrl, homeSsid, homePassphrase, provisionName, provisionRoom) }
-                                .onSuccess { info ->
-                                    provisioning = false
-                                    manualToken = info.token.orEmpty()
-                                    manualName = info.name
-                                    setupConnector.release()
-                                    provisionStatus = "Provisioned ${info.name}. Token copied below. Reconnect to home Wi-Fi if needed, scan for devices, then add it."
-                                    showMessage("ESP32 provisioned")
-                                }
-                                .onFailure { error ->
-                                    provisioning = false
-                                    provisionStatus = error.message ?: "Provisioning failed"
-                                    showMessage(error.message ?: "Provisioning failed")
-                                }
+                        } else {
+                            provisioning = true
+                            provisionStatus = "Sending home Wi-Fi credentials to ESP32..."
+                            scope.launch {
+                                runCatching { api.provision(setupBaseUrl, homeSsid, homePassphrase, provisionName, provisionRoom) }
+                                    .onSuccess { info ->
+                                        provisioning = false
+                                        manualToken = info.token.orEmpty()
+                                        manualName = info.name
+                                        setupConnector.release()
+                                        provisionStatus = "Provisioned ${info.name}. Token copied below. Reconnect to home Wi-Fi if needed, scan for devices, then add it."
+                                        showMessage("ESP32 provisioned")
+                                    }
+                                    .onFailure { error ->
+                                        provisioning = false
+                                        provisionStatus = error.message ?: "Provisioning failed"
+                                        showMessage(error.message ?: "Provisioning failed")
+                                    }
+                            }
                         }
                     }
                 )
