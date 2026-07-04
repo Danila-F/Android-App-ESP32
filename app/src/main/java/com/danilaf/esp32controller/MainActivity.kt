@@ -162,7 +162,8 @@ private fun Esp32ControllerApp() {
                                 passphrase = setupPassphrase,
                                 onAvailable = { scope.launch { provisionStatus = "Connected to ESP32 setup Wi-Fi. Now tap Provision." } },
                                 onUnavailable = { scope.launch { provisionStatus = "Setup Wi-Fi connection was not completed." } },
-                                onLost = { scope.launch { provisionStatus = "Setup Wi-Fi disconnected." } }
+                                onLost = { scope.launch { provisionStatus = "Setup Wi-Fi disconnected." } },
+                                onError = { message -> scope.launch { provisionStatus = message; snackbarHostState.showSnackbar(message) } }
                             )
                         } else {
                             provisionStatus = "Automatic setup Wi-Fi connection requires Android 10+. Connect to ESP32 setup Wi-Fi manually, then tap Provision."
