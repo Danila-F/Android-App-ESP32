@@ -247,21 +247,25 @@ fun AppRoot(
                     onBack = { currentScreen = AppScreen.Devices },
                     onRefresh = { refreshSelected() },
                     onSetPower = { enabled ->
-                        val device = selectedDevice ?: return@DeviceDetailsScreen
-                        if (mqttSettings.enabled) publishMqttCommand(device, "set_power", enabled)
-                        else scope.launch {
-                            runCatching { api.setPower(device, enabled) }
-                                .onSuccess { selectedState = it; repository.updatePower(device.id, it.power); reload() }
-                                .onFailure { showMessage(it.message ?: "Command failed") }
+                        val device = selectedDevice
+                        if (device != null) {
+                            if (mqttSettings.enabled) publishMqttCommand(device, "set_power", enabled)
+                            else scope.launch {
+                                runCatching { api.setPower(device, enabled) }
+                                    .onSuccess { selectedState = it; repository.updatePower(device.id, it.power); reload() }
+                                    .onFailure { showMessage(it.message ?: "Command failed") }
+                            }
                         }
                     },
                     onToggle = {
-                        val device = selectedDevice ?: return@DeviceDetailsScreen
-                        if (mqttSettings.enabled) publishMqttCommand(device, "toggle_power")
-                        else scope.launch {
-                            runCatching { api.togglePower(device) }
-                                .onSuccess { selectedState = it; repository.updatePower(device.id, it.power); reload() }
-                                .onFailure { showMessage(it.message ?: "Command failed") }
+                        val device = selectedDevice
+                        if (device != null) {
+                            if (mqttSettings.enabled) publishMqttCommand(device, "toggle_power")
+                            else scope.launch {
+                                runCatching { api.togglePower(device) }
+                                    .onSuccess { selectedState = it; repository.updatePower(device.id, it.power); reload() }
+                                    .onFailure { showMessage(it.message ?: "Command failed") }
+                            }
                         }
                     },
                     onAddToSystemControls = {
@@ -272,12 +276,14 @@ fun AppRoot(
                     },
                     onPickFirmware = { firmwarePicker.launch(arrayOf("application/octet-stream", "application/bin", "*/*")) },
                     onUploadFirmware = {
-                        val device = selectedDevice ?: return@DeviceDetailsScreen
-                        val uri = firmwareUri ?: return@DeviceDetailsScreen
-                        scope.launch {
-                            runCatching { api.uploadFirmware(device, uri) }
-                                .onSuccess { showMessage(it) }
-                                .onFailure { showMessage(it.message ?: "OTA upload failed") }
+                        val device = selectedDevice
+                        val uri = firmwareUri
+                        if (device != null && uri != null) {
+                            scope.launch {
+                                runCatching { api.uploadFirmware(device, uri) }
+                                    .onSuccess { showMessage(it) }
+                                    .onFailure { showMessage(it.message ?: "OTA upload failed") }
+                            }
                         }
                     },
                     onRemove = {
