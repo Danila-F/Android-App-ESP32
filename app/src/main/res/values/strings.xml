@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ESP32 Controller</string>
+    <string name="device_controls_subtitle">ESP32 Wi-Fi device</string>
+    <string name="control_on">On</string>
+    <string name="control_off">Off</string>
+    <string name="control_unavailable">Unavailable</string>
+</resources>
