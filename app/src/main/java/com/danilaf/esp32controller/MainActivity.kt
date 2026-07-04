@@ -10,26 +10,15 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,27 +37,30 @@ import com.danilaf.esp32controller.data.DeviceState
 import com.danilaf.esp32controller.data.DiscoveredDevice
 import com.danilaf.esp32controller.discovery.EspDiscoveryManager
 import com.danilaf.esp32controller.network.EspApiClient
+import com.danilaf.esp32controller.provisioning.WifiProvisioningConnector
+import com.danilaf.esp32controller.ui.AddDeviceCard
+import com.danilaf.esp32controller.ui.DeviceControlCard
+import com.danilaf.esp32controller.ui.DiscoveryCard
+import com.danilaf.esp32controller.ui.FirstTimeSetupCard
+import com.danilaf.esp32controller.ui.SavedDevicesCard
 import com.danilaf.esp32controller.ui.theme.Esp32ControllerTheme
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            Esp32ControllerTheme {
-                Esp32ControllerApp()
-            }
-        }
+        setContent { Esp32ControllerTheme { Esp32ControllerApp() } }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable
+@androidx.compose.runtime.Composable
 private fun Esp32ControllerApp() {
     val context = LocalContext.current
     val repository = remember { DeviceRepository(context) }
     val api = remember { EspApiClient(context) }
     val discovery = remember { EspDiscoveryManager(context) }
+    val setupConnector = remember { WifiProvisioningConnector(context) }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -82,32 +74,38 @@ private fun Esp32ControllerApp() {
     var selectedState by remember { mutableStateOf<DeviceState?>(null) }
     var selectedFirmwareUri by remember { mutableStateOf<Uri?>(null) }
 
+    var setupSsid by remember { mutableStateOf("ESP32-Setup-") }
+    var setupPassphrase by remember { mutableStateOf("esp32setup") }
+    var setupBaseUrl by remember { mutableStateOf("http://192.168.4.1") }
+    var homeSsid by remember { mutableStateOf("") }
+    var homePassphrase by remember { mutableStateOf("") }
+    var provisionName by remember { mutableStateOf("ESP32 Device") }
+    var provisionRoom by remember { mutableStateOf("") }
+    var provisionStatus by remember { mutableStateOf("") }
+    var provisioning by remember { mutableStateOf(false) }
+
     val firmwarePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         selectedFirmwareUri = uri
-        uri?.let {
-            context.contentResolver.takePersistableUriPermission(
-                it,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-        }
+        uri?.let { context.contentResolver.takePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (!granted) {
-            scope.launch { snackbarHostState.showSnackbar("Nearby Wi-Fi permission was not granted") }
-        }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) scope.launch { snackbarHostState.showSnackbar("Wi-Fi permission was not granted") }
     }
 
     LaunchedEffect(Unit) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissionLauncher.launch(Manifest.permission.NEARBY_WIFI_DEVICES)
+        } else {
+            permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 
     DisposableEffect(Unit) {
-        onDispose { discovery.stop() }
+        onDispose {
+            discovery.stop()
+            setupConnector.release()
+        }
     }
 
     fun reloadDevices() {
@@ -115,9 +113,7 @@ private fun Esp32ControllerApp() {
         selectedDevice = selectedDevice?.let { current -> devices.firstOrNull { it.id == current.id } } ?: devices.firstOrNull()
     }
 
-    fun showMessage(message: String) {
-        scope.launch { snackbarHostState.showSnackbar(message) }
-    }
+    fun showMessage(message: String) = scope.launch { snackbarHostState.showSnackbar(message) }
 
     fun refreshSelected() {
         val device = selectedDevice ?: return
@@ -137,45 +133,84 @@ private fun Esp32ControllerApp() {
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                AddDeviceCard(
-                    manualUrl = manualUrl,
-                    manualToken = manualToken,
-                    manualName = manualName,
-                    onUrlChange = { manualUrl = it },
-                    onTokenChange = { manualToken = it },
-                    onNameChange = { manualName = it },
-                    onAdd = {
+                FirstTimeSetupCard(
+                    setupSsid = setupSsid,
+                    setupPassword = setupPassphrase,
+                    setupBaseUrl = setupBaseUrl,
+                    homeWifiSsid = homeSsid,
+                    homeWifiPassword = homePassphrase,
+                    deviceName = provisionName,
+                    room = provisionRoom,
+                    status = provisionStatus,
+                    inProgress = provisioning,
+                    onSetupSsidChange = { setupSsid = it },
+                    onSetupPasswordChange = { setupPassphrase = it },
+                    onSetupBaseUrlChange = { setupBaseUrl = it },
+                    onHomeWifiSsidChange = { homeSsid = it },
+                    onHomeWifiPasswordChange = { homePassphrase = it },
+                    onDeviceNameChange = { provisionName = it },
+                    onRoomChange = { provisionRoom = it },
+                    onConnectSetupWifi = {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            provisionStatus = "Requesting Android connection to $setupSsid..."
+                            setupConnector.requestSetupNetwork(
+                                ssid = setupSsid,
+                                passphrase = setupPassphrase,
+                                onAvailable = { provisionStatus = "Connected to ESP32 setup Wi-Fi. Now tap Provision." },
+                                onUnavailable = { provisionStatus = "Setup Wi-Fi connection was not completed." },
+                                onLost = { provisionStatus = "Setup Wi-Fi disconnected." }
+                            )
+                        } else {
+                            provisionStatus = "Automatic setup Wi-Fi connection requires Android 10+. Connect to ESP32 setup Wi-Fi manually, then tap Provision."
+                        }
+                    },
+                    onProvision = {
+                        if (homeSsid.isBlank()) {
+                            showMessage("Home Wi-Fi SSID is required")
+                            return@FirstTimeSetupCard
+                        }
+                        provisioning = true
+                        provisionStatus = "Sending home Wi-Fi credentials to ESP32..."
                         scope.launch {
-                            runCatching {
-                                val info = api.getInfo(manualUrl, manualToken.ifBlank { null })
-                                val device = Device(
-                                    id = info.id.ifBlank { manualUrl },
-                                    name = manualName.ifBlank { info.name },
-                                    room = info.room,
-                                    baseUrl = info.baseUrl,
-                                    token = manualToken,
-                                    firmwareVersion = info.firmwareVersion
-                                )
-                                repository.saveDevice(device)
-                                reloadDevices()
-                                selectedDevice = device
-                            }.onSuccess {
-                                manualUrl = ""
-                                manualName = ""
-                                showMessage("Device saved")
-                            }.onFailure {
-                                showMessage(it.message ?: "Unable to add device")
-                            }
+                            runCatching { api.provision(setupBaseUrl, homeSsid, homePassphrase, provisionName, provisionRoom) }
+                                .onSuccess { info ->
+                                    provisioning = false
+                                    manualToken = info.token.orEmpty()
+                                    manualName = info.name
+                                    setupConnector.release()
+                                    provisionStatus = "Provisioned ${info.name}. Token copied below. Reconnect to home Wi-Fi if needed, scan for devices, then add it."
+                                    showMessage("ESP32 provisioned")
+                                }
+                                .onFailure { error ->
+                                    provisioning = false
+                                    provisionStatus = error.message ?: "Provisioning failed"
+                                    showMessage(error.message ?: "Provisioning failed")
+                                }
                         }
                     }
                 )
+            }
+
+            item {
+                AddDeviceCard(manualUrl, manualToken, manualName, { manualUrl = it }, { manualToken = it }, { manualName = it }) {
+                    scope.launch {
+                        runCatching {
+                            val info = api.getInfo(manualUrl, manualToken.ifBlank { null })
+                            val device = Device(info.id.ifBlank { manualUrl }, manualName.ifBlank { info.name }, info.room, info.baseUrl, manualToken, info.firmwareVersion)
+                            repository.saveDevice(device)
+                            reloadDevices()
+                            selectedDevice = device
+                        }.onSuccess {
+                            manualUrl = ""
+                            manualName = ""
+                            showMessage("Device saved")
+                        }.onFailure { showMessage(it.message ?: "Unable to add device") }
+                    }
+                }
             }
 
             item {
@@ -186,37 +221,17 @@ private fun Esp32ControllerApp() {
                         discovered.clear()
                         scanning = true
                         discovery.start(
-                            onDevice = { device ->
-                                if (discovered.none { it.baseUrl == device.baseUrl }) discovered.add(device)
-                            },
+                            onDevice = { device -> if (discovered.none { it.baseUrl == device.baseUrl }) discovered.add(device) },
                             onError = { showMessage(it) }
                         )
                     },
-                    onStopScan = {
-                        scanning = false
-                        discovery.stop()
-                    },
-                    onUse = { found ->
-                        manualUrl = found.baseUrl
-                        manualName = found.name
-                        showMessage("Discovery result copied to manual form")
-                    }
+                    onStopScan = { scanning = false; discovery.stop() },
+                    onUse = { found -> manualUrl = found.baseUrl; manualName = found.name; showMessage("Discovery result copied to manual form") }
                 )
             }
 
             item {
-                SavedDevicesCard(
-                    devices = devices,
-                    selectedDevice = selectedDevice,
-                    onSelect = {
-                        selectedDevice = it
-                        selectedState = null
-                    },
-                    onRemove = {
-                        repository.removeDevice(it.id)
-                        reloadDevices()
-                    }
-                )
+                SavedDevicesCard(devices, selectedDevice, onSelect = { selectedDevice = it; selectedState = null }, onRemove = { repository.removeDevice(it.id); reloadDevices() })
             }
 
             item {
@@ -229,11 +244,7 @@ private fun Esp32ControllerApp() {
                         val device = selectedDevice ?: return@DeviceControlCard
                         scope.launch {
                             runCatching { api.setPower(device, enabled) }
-                                .onSuccess {
-                                    selectedState = it
-                                    repository.updatePower(device.id, it.power)
-                                    reloadDevices()
-                                }
+                                .onSuccess { selectedState = it; repository.updatePower(device.id, it.power); reloadDevices() }
                                 .onFailure { showMessage(it.message ?: "Command failed") }
                         }
                     },
@@ -241,21 +252,14 @@ private fun Esp32ControllerApp() {
                         val device = selectedDevice ?: return@DeviceControlCard
                         scope.launch {
                             runCatching { api.togglePower(device) }
-                                .onSuccess {
-                                    selectedState = it
-                                    repository.updatePower(device.id, it.power)
-                                    reloadDevices()
-                                }
+                                .onSuccess { selectedState = it; repository.updatePower(device.id, it.power); reloadDevices() }
                                 .onFailure { showMessage(it.message ?: "Command failed") }
                         }
                     },
                     onAddToSystemControls = {
                         val device = selectedDevice ?: return@DeviceControlCard
                         val requested = DeviceControlsRequester.requestAdd(context, device)
-                        showMessage(
-                            if (requested) "Android Device Controls prompt requested"
-                            else "Android Device Controls require Android 11 or newer"
-                        )
+                        showMessage(if (requested) "Android Device Controls prompt requested" else "Android Device Controls require Android 11 or newer")
                     },
                     onPickFirmware = { firmwarePicker.launch(arrayOf("application/octet-stream", "application/bin", "*/*")) },
                     onUploadFirmware = {
@@ -269,154 +273,6 @@ private fun Esp32ControllerApp() {
                     }
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun AddDeviceCard(
-    manualUrl: String,
-    manualToken: String,
-    manualName: String,
-    onUrlChange: (String) -> Unit,
-    onTokenChange: (String) -> Unit,
-    onNameChange: (String) -> Unit,
-    onAdd: () -> Unit
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Add device", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                value = manualUrl,
-                onValueChange = onUrlChange,
-                label = { Text("Device URL or IP") },
-                placeholder = { Text("http://192.168.1.50") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-            OutlinedTextField(
-                value = manualToken,
-                onValueChange = onTokenChange,
-                label = { Text("Device token") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-            OutlinedTextField(
-                value = manualName,
-                onValueChange = onNameChange,
-                label = { Text("Display name override") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-            Button(onClick = onAdd, enabled = manualUrl.isNotBlank()) {
-                Text("Add device")
-            }
-        }
-    }
-}
-
-@Composable
-private fun DiscoveryCard(
-    scanning: Boolean,
-    discovered: List<DiscoveredDevice>,
-    onStartScan: () -> Unit,
-    onStopScan: () -> Unit,
-    onUse: (DiscoveredDevice) -> Unit
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Local discovery", style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onStartScan, enabled = !scanning) { Text("Scan for devices") }
-                OutlinedButton(onClick = onStopScan, enabled = scanning) { Text("Stop") }
-            }
-            if (discovered.isEmpty()) {
-                Text("No devices discovered yet.")
-            } else {
-                discovered.forEach { device ->
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(device.name, style = MaterialTheme.typography.bodyLarge)
-                            Text(device.baseUrl, style = MaterialTheme.typography.bodySmall)
-                        }
-                        OutlinedButton(onClick = { onUse(device) }) { Text("Use") }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SavedDevicesCard(
-    devices: List<Device>,
-    selectedDevice: Device?,
-    onSelect: (Device) -> Unit,
-    onRemove: (Device) -> Unit
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Saved devices", style = MaterialTheme.typography.titleMedium)
-            if (devices.isEmpty()) {
-                Text("No saved devices.")
-            } else {
-                devices.forEach { device ->
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(device.name, style = MaterialTheme.typography.bodyLarge)
-                            Text(device.baseUrl, style = MaterialTheme.typography.bodySmall)
-                            if (selectedDevice?.id == device.id) Text("Selected", style = MaterialTheme.typography.labelSmall)
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { onSelect(device) }) { Text("Select") }
-                            OutlinedButton(onClick = { onRemove(device) }) { Text("Remove") }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DeviceControlCard(
-    device: Device?,
-    state: DeviceState?,
-    firmwareUri: Uri?,
-    onRefresh: () -> Unit,
-    onSetPower: (Boolean) -> Unit,
-    onToggle: () -> Unit,
-    onAddToSystemControls: () -> Unit,
-    onPickFirmware: () -> Unit,
-    onUploadFirmware: () -> Unit
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Device control", style = MaterialTheme.typography.titleMedium)
-            if (device == null) {
-                Text("Select or add a device first.")
-                return@Column
-            }
-            Text(device.name, style = MaterialTheme.typography.bodyLarge)
-            Text(device.baseUrl, style = MaterialTheme.typography.bodySmall)
-            Text("Power: ${state?.power?.let { if (it) "On" else "Off" } ?: "Unknown"}")
-            state?.firmwareVersion?.let { Text("Firmware: $it") }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onRefresh) { Text("Refresh") }
-                Button(onClick = { onSetPower(true) }) { Text("Turn on") }
-                Button(onClick = { onSetPower(false) }) { Text("Turn off") }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onToggle) { Text("Toggle") }
-                OutlinedButton(onClick = onAddToSystemControls) { Text("Add to Android Device Controls") }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Firmware update", style = MaterialTheme.typography.titleSmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onPickFirmware) { Text("Select firmware.bin") }
-                Button(onClick = onUploadFirmware, enabled = firmwareUri != null) { Text("Upload OTA") }
-            }
-            firmwareUri?.let { Text("Selected: ${it.lastPathSegment ?: it}", style = MaterialTheme.typography.bodySmall) }
         }
     }
 }
