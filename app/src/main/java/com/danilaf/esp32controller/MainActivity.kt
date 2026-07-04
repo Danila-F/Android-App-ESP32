@@ -1,8 +1,6 @@
 package com.danilaf.esp32controller
 
 import android.Manifest
-import android.app.Activity
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -20,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.danilaf.esp32controller.controls.DeviceControlsRequester
 import com.danilaf.esp32controller.data.Device
 import com.danilaf.esp32controller.data.DeviceRepository
 import com.danilaf.esp32controller.data.DeviceState
@@ -251,6 +249,14 @@ private fun Esp32ControllerApp() {
                                 .onFailure { showMessage(it.message ?: "Command failed") }
                         }
                     },
+                    onAddToSystemControls = {
+                        val device = selectedDevice ?: return@DeviceControlCard
+                        val requested = DeviceControlsRequester.requestAdd(context, device)
+                        showMessage(
+                            if (requested) "Android Device Controls prompt requested"
+                            else "Android Device Controls require Android 11 or newer"
+                        )
+                    },
                     onPickFirmware = { firmwarePicker.launch(arrayOf("application/octet-stream", "application/bin", "*/*")) },
                     onUploadFirmware = {
                         val device = selectedDevice ?: return@DeviceControlCard
@@ -380,6 +386,7 @@ private fun DeviceControlCard(
     onRefresh: () -> Unit,
     onSetPower: (Boolean) -> Unit,
     onToggle: () -> Unit,
+    onAddToSystemControls: () -> Unit,
     onPickFirmware: () -> Unit,
     onUploadFirmware: () -> Unit
 ) {
@@ -399,7 +406,10 @@ private fun DeviceControlCard(
                 Button(onClick = { onSetPower(true) }) { Text("Turn on") }
                 Button(onClick = { onSetPower(false) }) { Text("Turn off") }
             }
-            OutlinedButton(onClick = onToggle) { Text("Toggle") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onToggle) { Text("Toggle") }
+                OutlinedButton(onClick = onAddToSystemControls) { Text("Add to Android Device Controls") }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Text("Firmware update", style = MaterialTheme.typography.titleSmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
