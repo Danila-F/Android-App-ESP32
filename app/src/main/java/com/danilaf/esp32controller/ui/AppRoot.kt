@@ -1,9 +1,6 @@
 package com.danilaf.esp32controller.ui
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -15,7 +12,6 @@ import com.danilaf.esp32controller.data.SettingsRepository
 import com.danilaf.esp32controller.mqtt.MqttClientManager
 import com.danilaf.esp32controller.ui.navigation.AppScreen
 import com.danilaf.esp32controller.ui.screens.*
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,8 +20,6 @@ fun AppRoot(
     settings: SettingsRepository,
     mqtt: MqttClientManager
 ) {
-    val scope = rememberCoroutineScope()
-
     var currentScreen by remember { mutableStateOf<AppScreen>(AppScreen.Devices) }
     var devices by remember { mutableStateOf(repository.getDevices()) }
 
@@ -36,8 +30,7 @@ fun AppRoot(
     var scanning by remember { mutableStateOf(false) }
     val discovered = remember { mutableStateListOf<DiscoveredDevice>() }
 
-    var snackbarHostState = remember { SnackbarHostState() }
-
+    val snackbarHostState = remember { SnackbarHostState() }
     val mqttSettings = settings.getMqttSettings()
 
     LaunchedEffect(mqttSettings) {
@@ -70,8 +63,8 @@ fun AppRoot(
             }
         }
     ) {
-        Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
-            when (val screen = currentScreen) {
+        Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { paddingValues ->
+            when (currentScreen) {
                 is AppScreen.Devices -> DevicesScreen(
                     devices = devices,
                     onOpenDevice = {
@@ -79,7 +72,7 @@ fun AppRoot(
                         currentScreen = AppScreen.DeviceDetails(it.id, it.name)
                     },
                     onAddDevice = { currentScreen = AppScreen.AddDevice },
-                    modifier = Modifier.padding(padding)
+                    modifier = Modifier.padding(paddingValues)
                 )
 
                 is AppScreen.AddDevice -> AddDeviceScreen(
@@ -114,16 +107,16 @@ fun AppRoot(
                     onStopScan = {},
                     onUseDiscovered = {},
                     onBack = { currentScreen = AppScreen.Devices },
-                    modifier = Modifier.padding(padding)
+                    modifier = Modifier.padding(paddingValues)
                 )
 
                 is AppScreen.Settings -> SettingsScreen(
                     language = settings.getLanguage(),
-                    versionName = "1.0",
-                    versionCode = 1,
+                    versionName = com.danilaf.esp32controller.BuildConfig.VERSION_NAME,
+                    versionCode = com.danilaf.esp32controller.BuildConfig.VERSION_CODE,
                     repositoryUrl = "https://github.com/Danila-F/Android-App-ESP32",
                     onLanguageChange = { settings.setLanguage(it) },
-                    modifier = Modifier.padding(padding)
+                    modifier = Modifier.padding(paddingValues)
                 )
 
                 is AppScreen.DeviceDetails -> DeviceDetailsScreen(
@@ -132,7 +125,7 @@ fun AppRoot(
                     firmwareUri = firmwareUri,
                     onBack = { currentScreen = AppScreen.Devices },
                     onRefresh = {},
-                    onSetPower = { enabled -> },
+                    onSetPower = {},
                     onToggle = {},
                     onAddToSystemControls = {},
                     onPickFirmware = {},
@@ -142,7 +135,7 @@ fun AppRoot(
                         reload()
                         currentScreen = AppScreen.Devices
                     },
-                    modifier = Modifier.padding(padding)
+                    modifier = Modifier.padding(paddingValues)
                 )
             }
         }
