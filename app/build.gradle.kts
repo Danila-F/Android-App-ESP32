@@ -4,6 +4,11 @@ plugins {
 }
 
 val ciVersionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+val ciKeystorePath = providers.gradleProperty("ANDROID_KEYSTORE_PATH").orNull
+val ciKeystorePassword = providers.gradleProperty("ANDROID_KEYSTORE_PASSWORD").orNull
+val ciKeyAlias = providers.gradleProperty("ANDROID_KEY_ALIAS").orNull
+val ciKeyPassword = providers.gradleProperty("ANDROID_KEY_PASSWORD").orNull
+val ciSigningEnabled = listOf(ciKeystorePath, ciKeystorePassword, ciKeyAlias, ciKeyPassword).all { !it.isNullOrBlank() }
 
 android {
     namespace = "com.danilaf.esp32controller"
@@ -17,9 +22,28 @@ android {
         versionName = "1.0.$ciVersionCode"
     }
 
+    signingConfigs {
+        create("ci") {
+            if (ciSigningEnabled) {
+                storeFile = file(ciKeystorePath!!)
+                storePassword = ciKeystorePassword
+                keyAlias = ciKeyAlias
+                keyPassword = ciKeyPassword
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            if (ciSigningEnabled) {
+                signingConfig = signingConfigs.getByName("ci")
+            }
+        }
         release {
             isMinifyEnabled = false
+            if (ciSigningEnabled) {
+                signingConfig = signingConfigs.getByName("ci")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
