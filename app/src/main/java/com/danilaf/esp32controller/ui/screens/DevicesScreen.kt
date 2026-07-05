@@ -3,7 +3,9 @@ package com.danilaf.esp32controller.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,31 +28,37 @@ fun DevicesScreen(
     onAddDevice: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
-                Text("Devices", style = MaterialTheme.typography.headlineSmall)
-                Text("Tap a device to control it.", style = MaterialTheme.typography.bodyMedium)
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Devices", style = MaterialTheme.typography.headlineSmall)
+                    Text("Tap a device to control it.", style = MaterialTheme.typography.bodyMedium)
+                }
+                ExtendedFloatingActionButton(
+                    onClick = onAddDevice,
+                    icon = { androidx.compose.material3.Icon(Icons.Default.Add, contentDescription = null) },
+                    text = { Text("Add") }
+                )
             }
-            ExtendedFloatingActionButton(
-                onClick = onAddDevice,
-                icon = { androidx.compose.material3.Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Add") }
-            )
         }
 
         if (devices.isEmpty()) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("No devices yet", style = MaterialTheme.typography.titleMedium)
-                    Text("Tap Add to set up a new ESP32 or add an existing device by IP address.")
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("No devices yet", style = MaterialTheme.typography.titleMedium)
+                        Text("Tap Add to set up a new ESP32 or add an existing device by IP address.")
+                    }
                 }
             }
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(devices, key = { it.id }) { device ->
-                    DeviceListItem(device = device, onClick = { onOpenDevice(device) })
-                }
+            items(devices, key = { it.id }) { device ->
+                DeviceListItem(device = device, onClick = { onOpenDevice(device) })
             }
         }
     }
