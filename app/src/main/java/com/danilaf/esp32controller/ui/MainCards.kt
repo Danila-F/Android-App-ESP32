@@ -38,7 +38,7 @@ fun AddDeviceCard(
             OutlinedTextField(manualUrl, onUrlChange, label = { Text("Device URL, IP, or .local host") }, placeholder = { Text("http://192.168.1.50 or http://esp32-xxxx.local") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             OutlinedTextField(manualToken, onTokenChange, label = { Text("Device token") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             OutlinedTextField(manualName, onNameChange, label = { Text("Display name override") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-            Button(onClick = onAdd, enabled = manualUrl.isNotBlank()) { Text("Add existing device") }
+            Button(onClick = onAdd, enabled = manualUrl.isNotBlank(), modifier = Modifier.fillMaxWidth()) { Text("Add existing device") }
         }
     }
 }
@@ -55,20 +55,20 @@ fun DiscoveryCard(
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Find devices on this network", style = MaterialTheme.typography.titleMedium)
             Text("Scans for ESP32 devices advertising the local _espctrl._tcp service. This does not run first-time setup.", style = MaterialTheme.typography.bodySmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onStartScan, enabled = !scanning) { Text("Scan local network") }
-                OutlinedButton(onClick = onStopScan, enabled = scanning) { Text("Stop") }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onStartScan, enabled = !scanning, modifier = Modifier.fillMaxWidth()) { Text("Scan local network") }
+                OutlinedButton(onClick = onStopScan, enabled = scanning, modifier = Modifier.fillMaxWidth()) { Text("Stop") }
             }
             if (discovered.isEmpty()) {
                 Text("No devices discovered yet. You can still add the device manually by IP address below.")
             } else {
                 discovered.forEach { device ->
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column {
                             Text(device.name, style = MaterialTheme.typography.bodyLarge)
                             Text(device.baseUrl, style = MaterialTheme.typography.bodySmall)
                         }
-                        OutlinedButton(onClick = { onUse(device) }) { Text("Use address") }
+                        OutlinedButton(onClick = { onUse(device) }, modifier = Modifier.fillMaxWidth()) { Text("Use address") }
                     }
                 }
             }
@@ -90,14 +90,14 @@ fun SavedDevicesCard(
                 Text("No saved devices.")
             } else {
                 devices.forEach { device ->
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column {
                             Text(device.name, style = MaterialTheme.typography.bodyLarge)
                             Text(device.baseUrl, style = MaterialTheme.typography.bodySmall)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(onClick = { onSelect(device) }, enabled = selectedDevice?.id != device.id) { Text("Select") }
-                            OutlinedButton(onClick = { onRemove(device) }) { Text("Remove") }
+                            OutlinedButton(onClick = { onSelect(device) }, enabled = selectedDevice?.id != device.id, modifier = Modifier.weight(1f)) { Text("Select") }
+                            OutlinedButton(onClick = { onRemove(device) }, modifier = Modifier.weight(1f)) { Text("Remove") }
                         }
                     }
                 }
@@ -128,19 +128,21 @@ fun DeviceControlCard(
             Text(device.name, style = MaterialTheme.typography.bodyLarge)
             Text(device.baseUrl, style = MaterialTheme.typography.bodySmall)
             Text("Power: ${state?.power?.let { if (it) "On" else "Off" } ?: "Unknown"}")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onRefresh) { Text("Refresh") }
-                OutlinedButton(onClick = { onSetPower(true) }) { Text("On") }
-                OutlinedButton(onClick = { onSetPower(false) }) { Text("Off") }
-                OutlinedButton(onClick = onToggle) { Text("Toggle") }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) { Text("Refresh") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { onSetPower(true) }, modifier = Modifier.weight(1f)) { Text("On") }
+                    OutlinedButton(onClick = { onSetPower(false) }, modifier = Modifier.weight(1f)) { Text("Off") }
+                }
+                OutlinedButton(onClick = onToggle, modifier = Modifier.fillMaxWidth()) { Text("Toggle") }
             }
-            OutlinedButton(onClick = onAddToSystemControls) { Text("Add to Android Device Controls") }
+            OutlinedButton(onClick = onAddToSystemControls, modifier = Modifier.fillMaxWidth()) { Text("Add to Android Device Controls") }
             Spacer(modifier = Modifier.height(8.dp))
             Text("OTA update", style = MaterialTheme.typography.titleSmall)
             Text(firmwareUri?.toString() ?: "No firmware selected", style = MaterialTheme.typography.bodySmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onPickFirmware) { Text("Pick firmware") }
-                Button(onClick = onUploadFirmware, enabled = firmwareUri != null) { Text("Upload OTA") }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onPickFirmware, modifier = Modifier.fillMaxWidth()) { Text("Pick firmware") }
+                Button(onClick = onUploadFirmware, enabled = firmwareUri != null, modifier = Modifier.fillMaxWidth()) { Text("Upload OTA") }
             }
         }
     }
