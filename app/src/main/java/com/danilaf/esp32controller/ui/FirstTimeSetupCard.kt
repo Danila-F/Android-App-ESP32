@@ -2,7 +2,6 @@ package com.danilaf.esp32controller.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -70,13 +69,12 @@ fun FirstTimeSetupCard(
                 singleLine = true
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = onConnectSetupWifi,
-                    enabled = setupSsid.isNotBlank() && setupPassword.isNotBlank() && !inProgress
-                ) {
-                    Text("Connect to setup Wi-Fi")
-                }
+            OutlinedButton(
+                onClick = onConnectSetupWifi,
+                enabled = setupSsid.isNotBlank() && setupPassword.isNotBlank() && !inProgress,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Connect to setup Wi-Fi")
             }
 
             OutlinedTextField(
@@ -113,7 +111,8 @@ fun FirstTimeSetupCard(
 
             Button(
                 onClick = onProvision,
-                enabled = homeWifiSsid.isNotBlank() && setupBaseUrl.isNotBlank() && !inProgress
+                enabled = homeWifiSsid.isNotBlank() && setupBaseUrl.isNotBlank() && !inProgress,
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text(if (inProgress) "Provisioning..." else "Provision ESP32 and save token")
             }
