@@ -3,9 +3,12 @@ package com.danilaf.esp32controller.ui.screens
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.item
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -31,23 +34,31 @@ fun DeviceDetailsScreen(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(modifier = modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onBack) { Text("Back") }
-            if (device != null) {
-                Button(onClick = onRemove) { Text("Remove") }
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onBack) { Text("Back") }
+                if (device != null) {
+                    Button(onClick = onRemove) { Text("Remove") }
+                }
             }
         }
-        DeviceControlCard(
-            device = device,
-            state = state,
-            firmwareUri = firmwareUri,
-            onRefresh = onRefresh,
-            onSetPower = onSetPower,
-            onToggle = onToggle,
-            onAddToSystemControls = onAddToSystemControls,
-            onPickFirmware = onPickFirmware,
-            onUploadFirmware = onUploadFirmware
-        )
+        item {
+            DeviceControlCard(
+                device = device,
+                state = state,
+                firmwareUri = firmwareUri,
+                onRefresh = onRefresh,
+                onSetPower = onSetPower,
+                onToggle = onToggle,
+                onAddToSystemControls = onAddToSystemControls,
+                onPickFirmware = onPickFirmware,
+                onUploadFirmware = onUploadFirmware
+            )
+        }
     }
 }
