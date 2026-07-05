@@ -45,10 +45,19 @@ fun SettingsScreen(
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("App updates", style = MaterialTheme.typography.titleMedium)
+                Text("Installed version: $versionName")
+                Text("Version code: $versionCode")
+                Text("Update channel: signed GitHub Actions APK")
+                Text("New APK artifacts can be installed over the existing app when they are signed with the same CI keystore and have a higher version code.", style = MaterialTheme.typography.bodySmall)
+                Text("Saved devices and settings are stored in app data and are preserved during normal APK updates.", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("About", style = MaterialTheme.typography.titleMedium)
                 Text("ESP32 Controller is a local Wi-Fi controller for ESP32 devices running the companion HTTP API firmware.")
-                Text("Version: $versionName")
-                Text("Version code: $versionCode")
                 OutlinedButton(onClick = { uriHandler.openUri(repositoryUrl) }) {
                     Text("Open GitHub repository")
                 }
