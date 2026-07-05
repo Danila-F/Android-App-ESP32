@@ -30,13 +30,32 @@ jobs:
         with:
           gradle-version: "9.4.1"
 
-      - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace
+      - name: Decode CI signing keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          mkdir -p app/signing
+          if [ -z "${ANDROID_KEYSTORE_BASE64}" ]; then
+            echo "ANDROID_KEYSTORE_BASE64 repository secret is missing"
+            exit 1
+          fi
+          printf '%s' "${ANDROID_KEYSTORE_BASE64}" | base64 --decode > app/signing/upload.jks
+          test -s app/signing/upload.jks
 
-      - name: Upload debug APK artifact
+      - name: Build signed debug APK
+        run: |
+          gradle :app:assembleDebug \
+            -PANDROID_KEYSTORE_PATH="$GITHUB_WORKSPACE/app/signing/upload.jks" \
+            -PANDROID_KEYSTORE_PASSWORD="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            -PANDROID_KEY_ALIAS="${{ secrets.ANDROID_KEY_ALIAS }}" \
+            -PANDROID_KEY_PASSWORD="${{ secrets.ANDROID_KEY_PASSWORD }}" \
+            --stacktrace
+
+      - name: Upload signed debug APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android-app-debug-apk
+          name: android-app-signed-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
