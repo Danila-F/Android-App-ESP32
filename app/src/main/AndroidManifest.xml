@@ -5,6 +5,7 @@
     <application
         android:allowBackup="true"
         android:label="ESP32 Gateway"
+        android:usesCleartextTraffic="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.Esp32Controller">
         <activity
